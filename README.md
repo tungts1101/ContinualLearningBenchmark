@@ -59,6 +59,7 @@ Welcome to PILOT, a pre-trained model-based continual learning toolbox <a href="
     }
 
 ## 📰 What's New
+- [2026-01]🌟 We have released [C3Box](https://github.com/LAMDA-CL/C3Box), a CLIP-based Class-Incremental Learning Toolbox. Have a try!
 - [2025-08]🌟 Add [TUNA](https://arxiv.org/abs/2508.08165). State-of-the-art method of 2025! 
 - [2025-07]🌟 Check out our [latest work](https://arxiv.org/abs/2503.08510) on class-incremental learning with CLIP (**ICCV 2025**)!
 - [2025-07]🌟 Check out our [latest work](https://arxiv.org/abs/2508.08165) on pre-trained model-based class-incremental learning (**ICCV 2025**)!
