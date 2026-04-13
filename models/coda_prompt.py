@@ -26,7 +26,12 @@ class Learner(BaseLearner):
         self.weight_decay = args["weight_decay"] if args["weight_decay"] is not None else 0.0005
         self.min_lr = args["min_lr"] if args["min_lr"] is not None else 1e-8
         self.args = args
-        
+
+        # Freeze backbone; only fc and prompt are trainable
+        for name, param in self._network.named_parameters():
+            if "fc" not in name and "prompt" not in name:
+                param.requires_grad_(False)
+
         total_params = sum(p.numel() for p in self._network.parameters())
         logging.info(f'{total_params:,} total parameters.')
         total_trainable_params = sum(p.numel() for p in self._network.fc.parameters() if p.requires_grad) + sum(p.numel() for p in self._network.prompt.parameters() if p.requires_grad)
