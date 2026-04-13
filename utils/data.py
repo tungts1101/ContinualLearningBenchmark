@@ -1,6 +1,32 @@
 import numpy as np
+import os
+import gdown
+import zipfile
+import kagglehub
 from torchvision import datasets, transforms
 from utils.toolkit import split_images_labels
+
+DATA_ROOT = "/home/lis/data"
+os.makedirs(DATA_ROOT, exist_ok=True)
+
+def download_and_extract_dataset(dataset_name, file_id, train_subdir="train", test_subdir="test"):
+    train_dir = f"{DATA_ROOT}/{dataset_name}/{train_subdir}/"
+    test_dir = f"{DATA_ROOT}/{dataset_name}/{test_subdir}/"
+
+    if not os.path.exists(train_dir) or not os.path.exists(test_dir):
+        print(f"{dataset_name} dataset not found. Downloading...")
+        zip_path = f"{DATA_ROOT}/{dataset_name}.zip"
+        try:
+            gdown.download(f"https://drive.google.com/uc?id={file_id}", zip_path, quiet=False)
+        except Exception as e:
+            raise Exception(f"Failed to download {dataset_name} dataset: {str(e)}")
+        print(f"Extracting {dataset_name} dataset...")
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(DATA_ROOT)
+        os.remove(zip_path)
+        print(f"{dataset_name} dataset extracted successfully.")
+
+    return train_dir, test_dir
 
 
 class iData(object):
@@ -28,8 +54,8 @@ class iCIFAR10(iData):
     class_order = np.arange(10).tolist()
 
     def download_data(self):
-        train_dataset = datasets.cifar.CIFAR10("./data", train=True, download=True)
-        test_dataset = datasets.cifar.CIFAR10("./data", train=False, download=True)
+        train_dataset = datasets.cifar.CIFAR10(DATA_ROOT, train=True, download=True)
+        test_dataset = datasets.cifar.CIFAR10(DATA_ROOT, train=False, download=True)
         self.train_data, self.train_targets = train_dataset.data, np.array(
             train_dataset.targets
         )
@@ -56,8 +82,8 @@ class iCIFAR100(iData):
     class_order = np.arange(100).tolist()
 
     def download_data(self):
-        train_dataset = datasets.cifar.CIFAR100("./data", train=True, download=True)
-        test_dataset = datasets.cifar.CIFAR100("./data", train=False, download=True)
+        train_dataset = datasets.cifar.CIFAR100(DATA_ROOT, train=True, download=True)
+        test_dataset = datasets.cifar.CIFAR100(DATA_ROOT, train=False, download=True)
         self.train_data, self.train_targets = train_dataset.data, np.array(
             train_dataset.targets
         )
@@ -86,6 +112,7 @@ def build_transform_coda_prompt(is_train, args):
     else:
         t = [
             transforms.Resize(224),
+            transforms.CenterCrop(224),
             transforms.ToTensor(),
             transforms.Normalize((0.0,0.0,0.0), (1.0,1.0,1.0)),
         ]
@@ -137,8 +164,8 @@ class iCIFAR224(iData):
         self.class_order = np.arange(100).tolist()
 
     def download_data(self):
-        train_dataset = datasets.cifar.CIFAR100("./data", train=True, download=True)
-        test_dataset = datasets.cifar.CIFAR100("./data", train=False, download=True)
+        train_dataset = datasets.cifar.CIFAR100(DATA_ROOT, train=True, download=True)
+        test_dataset = datasets.cifar.CIFAR100(DATA_ROOT, train=False, download=True)
         self.train_data, self.train_targets = train_dataset.data, np.array(
             train_dataset.targets
         )
@@ -224,9 +251,8 @@ class iImageNetR(iData):
         self.class_order = np.arange(200).tolist()
 
     def download_data(self):
-        # assert 0, "You should specify the folder of your dataset"
-        train_dir = "./data/imagenet-r/train/"
-        test_dir = "./data/imagenet-r/test/"
+        # https://drive.google.com/file/d/1SG4TbiL8_DooekztyCVK8mPmfhMo8fkR
+        train_dir, test_dir = download_and_extract_dataset("imagenet-r", "1SG4TbiL8_DooekztyCVK8mPmfhMo8fkR")
 
         train_dset = datasets.ImageFolder(train_dir)
         test_dset = datasets.ImageFolder(test_dir)
@@ -237,17 +263,22 @@ class iImageNetR(iData):
 
 class iImageNetA(iData):
     use_path = True
-    
-    train_trsf = build_transform(True, None)
-    test_trsf = build_transform(False, None)
-    common_trsf = [    ]
-
     class_order = np.arange(200).tolist()
 
+    def __init__(self, args):
+        super().__init__()
+        self.args = args
+        if args["model_name"] == "coda_prompt":
+            self.train_trsf = build_transform_coda_prompt(True, args)
+            self.test_trsf = build_transform_coda_prompt(False, args)
+        else:
+            self.train_trsf = build_transform(True, args)
+            self.test_trsf = build_transform(False, args)
+        self.common_trsf = []
+
     def download_data(self):
-        # assert 0, "You should specify the folder of your dataset"
-        train_dir = "./data/imagenet-a/train/"
-        test_dir = "./data/imagenet-a/test/"
+        # https://drive.google.com/file/d/19l52ua_vvTtttgVRziCZJjal0TPE9f2p
+        train_dir, test_dir = download_and_extract_dataset("imagenet-a", "19l52ua_vvTtttgVRziCZJjal0TPE9f2p")
 
         train_dset = datasets.ImageFolder(train_dir)
         test_dset = datasets.ImageFolder(test_dir)
@@ -259,17 +290,22 @@ class iImageNetA(iData):
 
 class CUB(iData):
     use_path = True
-    
-    train_trsf = build_transform(True, None)
-    test_trsf = build_transform(False, None)
-    common_trsf = [    ]
-
     class_order = np.arange(200).tolist()
 
+    def __init__(self, args):
+        super().__init__()
+        self.args = args
+        if args["model_name"] == "coda_prompt":
+            self.train_trsf = build_transform_coda_prompt(True, args)
+            self.test_trsf = build_transform_coda_prompt(False, args)
+        else:
+            self.train_trsf = build_transform(True, args)
+            self.test_trsf = build_transform(False, args)
+        self.common_trsf = []
+
     def download_data(self):
-        # assert 0, "You should specify the folder of your dataset"
-        train_dir = "./data/cub/train/"
-        test_dir = "./data/cub/test/"
+        # https://drive.google.com/file/d/1XbUpnWpJPnItt5zQ6sHJnsjPncnNLvWb
+        train_dir, test_dir = download_and_extract_dataset("cub", "1XbUpnWpJPnItt5zQ6sHJnsjPncnNLvWb")
 
         train_dset = datasets.ImageFolder(train_dir)
         test_dset = datasets.ImageFolder(test_dir)
@@ -288,9 +324,8 @@ class objectnet(iData):
     class_order = np.arange(200).tolist()
 
     def download_data(self):
-        # assert 0, "You should specify the folder of your dataset"
-        train_dir = "./data/objectnet/train/"
-        test_dir = "./data/objectnet/test/"
+        train_dir = f"{DATA_ROOT}/objectnet/train/"
+        test_dir = f"{DATA_ROOT}/objectnet/test/"
 
         train_dset = datasets.ImageFolder(train_dir)
         test_dset = datasets.ImageFolder(test_dir)
@@ -301,17 +336,22 @@ class objectnet(iData):
 
 class omnibenchmark(iData):
     use_path = True
-    
-    train_trsf = build_transform(True, None)
-    test_trsf = build_transform(False, None)
-    common_trsf = [    ]
-
     class_order = np.arange(300).tolist()
 
+    def __init__(self, args):
+        super().__init__()
+        self.args = args
+        if args["model_name"] == "coda_prompt":
+            self.train_trsf = build_transform_coda_prompt(True, args)
+            self.test_trsf = build_transform_coda_prompt(False, args)
+        else:
+            self.train_trsf = build_transform(True, args)
+            self.test_trsf = build_transform(False, args)
+        self.common_trsf = []
+
     def download_data(self):
-        # assert 0, "You should specify the folder of your dataset"
-        train_dir = "./data/omnibenchmark/train/"
-        test_dir = "./data/omnibenchmark/test/"
+        # https://drive.google.com/file/d/1AbCP3zBMtv_TDXJypOCnOgX8hJmvJm3u
+        train_dir, test_dir = download_and_extract_dataset("omnibenchmark", "1AbCP3zBMtv_TDXJypOCnOgX8hJmvJm3u")
 
         train_dset = datasets.ImageFolder(train_dir)
         test_dset = datasets.ImageFolder(test_dir)
@@ -323,23 +363,63 @@ class omnibenchmark(iData):
 
 class vtab(iData):
     use_path = True
-    
-    train_trsf = build_transform(True, None)
-    test_trsf = build_transform(False, None)
-    common_trsf = [    ]
-
     class_order = np.arange(50).tolist()
 
+    def __init__(self, args):
+        super().__init__()
+        self.args = args
+        if args["model_name"] == "coda_prompt":
+            self.train_trsf = build_transform_coda_prompt(True, args)
+            self.test_trsf = build_transform_coda_prompt(False, args)
+        else:
+            self.train_trsf = build_transform(True, args)
+            self.test_trsf = build_transform(False, args)
+        self.common_trsf = []
+
     def download_data(self):
-        # assert 0, "You should specify the folder of your dataset"
-        train_dir = "./data/vtab-cil/vtab/train/"
-        test_dir = "./data/vtab-cil/vtab/test/"
+        # https://drive.google.com/file/d/1xUiwlnx4k0oDhYi26KL5KwrCAya-mvJ_
+        train_dir, test_dir = download_and_extract_dataset("vtab", "1xUiwlnx4k0oDhYi26KL5KwrCAya-mvJ_")
 
         train_dset = datasets.ImageFolder(train_dir)
         test_dset = datasets.ImageFolder(test_dir)
 
-        print(train_dset.class_to_idx)
-        print(test_dset.class_to_idx)
-
         self.train_data, self.train_targets = split_images_labels(train_dset.imgs)
         self.test_data, self.test_targets = split_images_labels(test_dset.imgs)
+
+
+class cars(iData):
+    use_path = True
+
+    class_order = np.arange(196).tolist()
+
+    def __init__(self, args):
+        super().__init__()
+        self.args = args
+        if args["model_name"] == "coda_prompt":
+            self.train_trsf = build_transform_coda_prompt(True, args)
+            self.test_trsf = build_transform_coda_prompt(False, args)
+        else:
+            self.train_trsf = build_transform(True, args)
+            self.test_trsf = build_transform(False, args)
+        self.common_trsf = []
+
+    def download_data(self):
+        stanford_cars_dir = f"{DATA_ROOT}/stanford_cars"
+
+        if not os.path.exists(stanford_cars_dir):
+            print("Stanford Cars dataset not found. Downloading from Kaggle...")
+            try:
+                path = kagglehub.dataset_download("rickyyyyyyy/torchvision-stanford-cars")
+                stanford_cars_source = os.path.join(path, "stanford_cars")
+                import shutil
+                if os.path.exists(stanford_cars_source):
+                    shutil.copytree(stanford_cars_source, stanford_cars_dir)
+                else:
+                    shutil.copytree(path, stanford_cars_dir)
+            except Exception as e:
+                raise Exception(f"Failed to download Stanford Cars dataset: {str(e)}")
+
+        train_dataset = datasets.StanfordCars(DATA_ROOT, split='train', download=False)
+        test_dataset = datasets.StanfordCars(DATA_ROOT, split='test', download=False)
+        self.train_data, self.train_targets = split_images_labels(train_dataset._samples)
+        self.test_data, self.test_targets = split_images_labels(test_dataset._samples)

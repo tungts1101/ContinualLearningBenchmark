@@ -74,6 +74,16 @@ class Learner(BaseLearner):
     def after_task(self):
         self._known_classes = self._total_classes
 
+    def get_storage_report(self):
+        rep = super().get_storage_report()
+        b = (sum(v.numel() * v.element_size() for v in self.cls_mean.values()
+                 if hasattr(v, 'numel')) +
+             sum(v.numel() * v.element_size() for v in self.cls_cov.values()
+                 if hasattr(v, 'numel')))
+        if b:
+            rep['ram_bytes'] += b; rep['detail']['cls_mean_cov'] = b
+        return rep
+
     def incremental_train(self, data_manager):
         self._cur_task += 1
         self._total_classes = self._known_classes + data_manager.get_task_size(self._cur_task)
@@ -156,7 +166,7 @@ class Learner(BaseLearner):
 
             losses = 0.0
             correct, total = 0, 0
-            for i, (_, inputs, targets) in enumerate(train_loader):
+            for i, (_, inputs, targets) in enumerate(self._timed_loader(train_loader)):
                 inputs, targets = inputs.to(self._device), targets.to(self._device)
             
                 output = self._network(inputs, adapter_id=self._cur_task, train=True)

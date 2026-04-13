@@ -33,7 +33,10 @@ import torch.utils.checkpoint
 from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD, IMAGENET_INCEPTION_MEAN, IMAGENET_INCEPTION_STD
 from timm.models.helpers import build_model_with_cfg, named_apply, adapt_input_conv, resolve_pretrained_cfg, checkpoint_seq
 from timm.models.layers import DropPath, trunc_normal_, lecun_normal_, _assert
-from timm.models.layers.helpers import to_2tuple
+try:
+    from timm.models.layers.helpers import to_2tuple
+except ModuleNotFoundError:
+    from timm.layers import to_2tuple
 from timm.models.registry import register_model
 
 
@@ -735,7 +738,6 @@ def _create_vision_transformer(variant, pretrained=False, **kwargs):
         VisionTransformer, variant, pretrained,
         pretrained_cfg=pretrained_cfg,
         pretrained_filter_fn=checkpoint_filter_fn,
-        pretrained_custom_load='npz' in pretrained_cfg['url'],
         **kwargs)
     return model
 

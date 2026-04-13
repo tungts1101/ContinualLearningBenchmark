@@ -45,7 +45,31 @@ class Learner(BaseLearner):
         self._known_classes = self._total_classes
         self._network.freeze()
         self._network.backbone.add_adapter_to_list()
-    
+
+    def get_param_report(self):
+        from utils.toolkit import count_parameters
+        total     = count_parameters(self._network)
+        trainable = count_parameters(self._network, trainable=True)
+        # For EASE, cur_adapter lives inside backbone but is semantically task-specific.
+        # backbone = frozen ViT (0 trainable); task_specific = cur_adapter params.
+        backbone_trainable = 0  # ViT weights are all frozen during incremental tasks
+        task_specific = trainable  # the entire trainable budget is the current adapter
+        return {
+            "total":         total,
+            "trainable":     trainable,
+            "backbone":      backbone_trainable,
+            "task_specific": task_specific,
+        }
+
+    def get_storage_report(self):
+        rep = super().get_storage_report()
+        if hasattr(self._network, 'backbone') and hasattr(self._network.backbone, 'adapters'):
+            b = sum(p.numel() * p.element_size()
+                    for adp in self._network.backbone.adapters for p in adp.parameters())
+            if b:
+                rep['ram_bytes'] += b; rep['detail']['frozen_adapters'] = b
+        return rep
+
     def get_cls_range(self, task_id):
         if task_id == 0:
             start_cls = 0
@@ -319,7 +343,7 @@ class Learner(BaseLearner):
 
             losses = 0.0
             correct, total = 0, 0
-            for i, (_, inputs, targets) in enumerate(train_loader):
+            for i, (_, inputs, targets) in enumerate(self._timed_loader(train_loader)):
                 inputs, targets = inputs.to(self._device), targets.to(self._device)
 
                 aux_targets = targets.clone()

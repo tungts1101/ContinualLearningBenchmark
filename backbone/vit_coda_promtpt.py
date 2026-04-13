@@ -524,6 +524,9 @@ def checkpoint_filter_fn(state_dict, model, adapt_layer_scale=False):
         elif 'pre_logits' in k:
             # NOTE representation layer removed as not used in latest 21k/1k pretrained weights
             continue
+        elif k.startswith('head.'):
+            # CodaPrompt replaces the classifier head; skip pretrained head weights
+            continue
         out_dict[k] = v
     return out_dict
 
@@ -536,7 +539,7 @@ def _create_vision_transformer(variant, pretrained=False, **kwargs):
         VisionTransformer, variant, pretrained,
         pretrained_cfg=pretrained_cfg,
         pretrained_filter_fn=checkpoint_filter_fn,
-        pretrained_custom_load='npz' in pretrained_cfg['url'],
+        pretrained_strict=False,
         **kwargs)
     return model
 

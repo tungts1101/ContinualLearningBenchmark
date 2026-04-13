@@ -788,7 +788,6 @@ def _create_vision_transformer(variant, pretrained=False, **kwargs):
         VisionTransformer, variant, pretrained,
         pretrained_cfg=pretrained_cfg,
         pretrained_filter_fn=checkpoint_filter_fn,
-        pretrained_custom_load='npz' in pretrained_cfg['url'],
         **kwargs)
     return model
 
@@ -864,7 +863,6 @@ def _create_vision_transformer_base(variant, pretrained=False, **kwargs):
         Generalized_Vit, variant, pretrained,
         pretrained_cfg=pretrained_cfg,
         pretrained_filter_fn=checkpoint_filter_fn,
-        pretrained_custom_load='npz' in pretrained_cfg['url'],
         **kwargs)
     return model
 
@@ -877,7 +875,6 @@ def _create_vision_transformer_adaptive(variant, pretrained=False, **kwargs):
         Specialized_Vit, variant, pretrained,
         pretrained_cfg=pretrained_cfg,
         pretrained_filter_fn=checkpoint_filter_fn,
-        pretrained_custom_load='npz' in pretrained_cfg['url'],
         **kwargs)
     return model
 

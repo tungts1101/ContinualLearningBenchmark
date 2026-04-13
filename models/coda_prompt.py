@@ -109,7 +109,7 @@ class Learner(BaseLearner):
 
             losses = 0.0
             correct, total = 0, 0
-            for i, (_, inputs, targets) in enumerate(train_loader):
+            for i, (_, inputs, targets) in enumerate(self._timed_loader(train_loader)):
                 inputs, targets = inputs.to(self._device), targets.to(self._device)
             
                 # logits

@@ -53,6 +53,16 @@ class Learner(BaseLearner):
         # self.save_checkpoint(self.log_path+'/'+self.model_prefix+'_seed{}'.format(self.seed), head_only=self.fix_bcb)
         self._network.fc.recall()
 
+    def get_storage_report(self):
+        rep = super().get_storage_report()
+        def _nb(v): return int(v.nbytes) if hasattr(v, 'nbytes') else int(v.numel() * v.element_size())
+        for attr in ('_class_means_slca', '_class_covs_slca'):
+            v = getattr(self, attr, None)
+            if v is not None:
+                b = _nb(v); rep['ram_bytes'] += b; rep['detail'][attr] = b
+        return rep
+
+
     def incremental_train(self, data_manager):
         self._cur_task += 1
         task_size = data_manager.get_task_size(self._cur_task)
@@ -93,7 +103,7 @@ class Learner(BaseLearner):
         for _, epoch in enumerate(prog_bar):
             self._network.train()
             losses = 0.
-            for i, (_, inputs, targets) in enumerate(train_loader):
+            for i, (_, inputs, targets) in enumerate(self._timed_loader(train_loader)):
                 inputs, targets = inputs.to(self._device), targets.to(self._device)
 
                 logits = self._network(inputs, bcb_no_grad=self.fix_bcb)['logits']

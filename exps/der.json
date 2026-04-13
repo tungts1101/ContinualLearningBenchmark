@@ -9,19 +9,32 @@
     "increment": 10,
     "model_name": "der",
     "backbone_type": "vit_base_patch16_224",
-    "device": ["0"],
-    "seed": [1993],
-    
+    "device": [
+        "0"
+    ],
+    "seed": [
+        1993,
+        1994,
+        1995
+    ],
     "init_epoch": 10,
-    "init_lr": 1e-3,
-    "init_milestones": [60, 120, 170],
+    "init_lr": 0.001,
+    "init_milestones": [
+        60,
+        120,
+        170
+    ],
     "init_lr_decay": 0.1,
     "init_weight_decay": 0.0005,
     "epochs": 10,
-    "lrate": 1e-3,
-    "milestones": [80, 120, 150],
+    "lrate": 0.001,
+    "milestones": [
+        80,
+        120,
+        150
+    ],
     "lrate_decay": 0.1,
     "batch_size": 32,
-    "weight_decay": 2e-4,
+    "weight_decay": 0.0002,
     "T": 2
 }

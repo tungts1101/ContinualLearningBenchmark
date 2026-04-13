@@ -22,7 +22,10 @@ from timm.models.layers import (
     lecun_normal_,
     trunc_normal_,
 )
-from timm.models.layers.helpers import to_2tuple
+try:
+    from timm.models.layers.helpers import to_2tuple
+except ModuleNotFoundError:
+    from timm.layers import to_2tuple
 
 _logger = logging.getLogger(__name__)
 
@@ -1156,7 +1159,6 @@ def _create_vision_transformer(variant, pretrained=False, **kwargs):
         VisionTransformer, variant, pretrained,
         pretrained_cfg=pretrained_cfg,
         pretrained_filter_fn=checkpoint_filter_fn,
-        pretrained_custom_load='npz' in pretrained_cfg['url'],
         **kwargs)
     return model
 

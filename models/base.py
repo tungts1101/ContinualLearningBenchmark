@@ -1,5 +1,6 @@
 import copy
 import logging
+import time
 import numpy as np
 import torch
 from torch import nn
@@ -26,6 +27,8 @@ class BaseLearner(object):
         self._device = args["device"][0]
         self._multiple_gpus = args["device"]
         self.args = args
+
+        self._total_data_time = 0.0  # cumulative DataLoader wait across all tasks
 
     @property
     def exemplar_size(self):
@@ -99,6 +102,74 @@ class BaseLearner(object):
 
     def after_task(self):
         pass
+
+    # ── Resource-reporting hooks (override in subclasses as needed) ────────────
+
+    def _timed_loader(self, loader):
+        """Yield batches from loader; accumulate DataLoader wait time into _total_data_time.
+        Wrap the SGD training loop only (not prototype/eval loaders)."""
+        _t = time.time()
+        for batch in loader:
+            self._total_data_time += time.time() - _t
+            yield batch
+            _t = time.time()
+
+    def get_param_report(self):
+        """Return trainable param counts split into backbone vs task-specific components.
+
+        'backbone' is the shared feature extractor that is reused across tasks.
+        We probe several known attribute names in priority order:
+          - self._network.backbone        — most networks (BaseNet subclasses, PromptVitNet, MOSNet …)
+          - self._network.backbones       — DERNet / FOSTERNet (ModuleList, grows per task)
+          - self._network.TaskAgnosticExtractor — AdaptiveNet / MEMO
+        For MultiBranchCosineIncrementalNet (aper_* after task 0), backbone is set to
+        nn.Identity() so its count is 0; the whole trainable budget is task_specific,
+        which is correct for the per-task row.  unique_trainable is computed via the
+        incremental-delta formula in _log_summary so it is never over-counted.
+        """
+        from utils.toolkit import count_parameters
+        total     = count_parameters(self._network)
+        trainable = count_parameters(self._network, trainable=True)
+
+        net = self._network
+        if hasattr(net, 'backbone'):
+            backbone_trainable = count_parameters(net.backbone, trainable=True)
+        elif hasattr(net, 'backbones'):           # DERNet, FOSTERNet
+            backbone_trainable = count_parameters(net.backbones, trainable=True)
+        elif hasattr(net, 'TaskAgnosticExtractor'):  # AdaptiveNet / MEMO
+            backbone_trainable = count_parameters(net.TaskAgnosticExtractor, trainable=True)
+        else:
+            backbone_trainable = 0
+
+        return {
+            "total":         total,
+            "trainable":     trainable,
+            "backbone":      backbone_trainable,
+            "task_specific": trainable - backbone_trainable,
+        }
+
+    def get_storage_report(self):
+        """Return storage usage dict: RAM statistics + disk checkpoints.
+        Subclasses override to add method-specific tensors (means, covs, adapters, etc.)."""
+        def _nb(v):
+            if v is None: return 0
+            if hasattr(v, 'nbytes'): return int(v.nbytes)          # numpy
+            if hasattr(v, 'numel'): return int(v.numel() * v.element_size())  # torch
+            return 0
+
+        ram, detail = 0, {}
+        # Exemplar images stored as numpy array (skip path-mode where dtype=object)
+        if (hasattr(self, '_data_memory') and len(self._data_memory) > 0
+                and self._data_memory.dtype != object):
+            b = _nb(self._data_memory); ram += b; detail['exemplars'] = b
+        # Class statistics stored on BaseLearner
+        for attr in ('_class_means', '_class_covs'):
+            v = getattr(self, attr, None)
+            if v is not None:
+                b = _nb(v); ram += b; detail[attr] = b
+        return {'ram_bytes': ram, 'disk_bytes': 0, 'n_disk_files': 0, 'detail': detail}
+
+    # ──────────────────────────────────────────────────────────────────────────
 
     def _evaluate(self, y_pred, y_true):
         ret = {}
