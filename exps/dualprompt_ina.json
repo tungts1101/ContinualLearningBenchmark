@@ -39,7 +39,7 @@
     "drop": 0.0,
     "drop_path": 0.0,
     "use_g_prompt": true,
-    "g_prompt_length": 5,
+    "g_prompt_length": 10,
     "g_prompt_layer_idx": [
         0,
         1
@@ -53,8 +53,8 @@
     ],
     "use_prefix_tune_for_e_prompt": true,
     "prompt_pool": true,
-    "size": 10,
-    "length": 5,
+    "size": 50,
+    "length": 20,
     "top_k": 1,
     "initializer": "uniform",
     "prompt_key": true,

@@ -45,5 +45,5 @@
     "pretrained": true,
     "drop": 0.0,
     "drop_path": 0.0,
-    "ffn_num": 16
+    "ffn_num": 128
 }
