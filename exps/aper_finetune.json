@@ -25,5 +25,5 @@
     "ffn_num": 64,
     "optimizer": "sgd",
     "vpt_type": "deep",
-    "prompt_token_num": 5
+    "prompt_token_num": 30
 }

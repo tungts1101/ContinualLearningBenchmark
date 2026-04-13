@@ -23,6 +23,6 @@
     "weight_decay": 0.05,
     "min_lr": 1e-08,
     "optimizer": "sgd",
-    "vpt_type": "shallow",
-    "prompt_token_num": 3
+    "vpt_type": "deep",
+    "prompt_token_num": 30
 }
