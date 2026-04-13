@@ -27,9 +27,9 @@ class Learner(BaseLearner):
         self.min_lr = args["min_lr"] if args["min_lr"] is not None else 1e-8
         self.args = args
 
-        # Freeze backbone; only fc and prompt are trainable
+        # Freeze backbone; only fc (head) and prompt are trainable
         for name, param in self._network.named_parameters():
-            if "fc" not in name and "prompt" not in name:
+            if not (name.startswith("fc") or name.startswith("prompt")):
                 param.requires_grad_(False)
 
         total_params = sum(p.numel() for p in self._network.parameters())
