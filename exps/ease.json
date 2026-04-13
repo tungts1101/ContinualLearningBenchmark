@@ -29,7 +29,7 @@
     "pretrained": true,
     "vpt_type": "deep",
     "prompt_token_num": 63,
-    "ffn_num": 96,
+    "ffn_num": 128,
     "use_diagonal": false,
     "recalc_sim": true,
     "alpha": 0.1,
