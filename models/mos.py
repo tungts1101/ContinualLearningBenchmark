@@ -179,6 +179,13 @@ class Learner(BaseLearner):
                 logits = output["logits"][:, :self._total_classes]
                 logits[:, :self._known_classes] = float('-inf')
 
+                # Skip batch if forward pass already produced NaN (corrupted weights or
+                # problematic input); avoid a NaN backward that would corrupt the weights.
+                if torch.isnan(output['pre_logits']).any() or torch.isnan(logits).any():
+                    logging.warning(f"Task {self._cur_task}, batch {i}: NaN in forward pass, skipping update")
+                    optimizer.zero_grad()
+                    continue
+
                 loss = F.cross_entropy(logits, targets.long())
                 loss += self.orth_loss(output['pre_logits'], targets)
 
@@ -354,6 +361,9 @@ class Learner(BaseLearner):
         logging.info(info)
 
     def orth_loss(self, features, targets):
+        # Normalize to unit sphere so similarity values are bounded in [-1/0.8, 1/0.8]
+        # regardless of feature magnitude, preventing numerical overflow.
+        features = F.normalize(features, dim=1)
         if self.cls_mean:
             # orth loss of this batch
             sample_mean = []
@@ -363,6 +373,7 @@ class Learner(BaseLearner):
                 else:
                     sample_mean.append(v)
             sample_mean = torch.stack(sample_mean, dim=0).to(self._device, non_blocking=True)
+            sample_mean = F.normalize(sample_mean, dim=1)
             M = torch.cat([sample_mean, features], dim=0)
             sim = torch.matmul(M, M.t()) / 0.8
             loss = torch.nn.functional.cross_entropy(sim, torch.arange(0, sim.shape[0]).long().to(self._device))
