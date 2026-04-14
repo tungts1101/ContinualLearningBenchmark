@@ -176,20 +176,15 @@ class Learner(BaseLearner):
                 loss = F.cross_entropy(logits, targets.long())
                 loss += self.orth_loss(output['pre_logits'], targets)
 
-                if torch.isnan(loss):
-                    logging.warning(f"NaN loss at task {self._cur_task} iter {i}, skipping batch")
-                    optimizer.zero_grad()
-                else:
-                    optimizer.zero_grad()
-                    loss.backward()
-                    torch.nn.utils.clip_grad_norm_(self._network.backbone.parameters(), 1.0)
-                    optimizer.step()
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
 
-                    # using EMA method to merge adapters
-                    if self.args["adapter_momentum"] > 0:
-                        self._network.backbone.adapter_merge()
+                # using EMA method to merge adapters
+                if self.args["adapter_momentum"] > 0:
+                    self._network.backbone.adapter_merge()
 
-                losses += loss.item() if not torch.isnan(loss) else 0.0
+                losses += loss.item()
 
                 _, preds = torch.max(logits, dim=1)
                 correct += preds.eq(targets.expand_as(preds)).cpu().sum()
@@ -225,10 +220,9 @@ class Learner(BaseLearner):
             )
             
             vectors = []
-            with torch.no_grad():
-                for _, _inputs, _targets in idx_loader:
-                    _vectors = model(_inputs.to(self._device), adapter_id=self._cur_task, train=False)["features"]
-                    vectors.append(_vectors)
+            for _, _inputs, _targets in idx_loader:
+                _vectors = model(_inputs.to(self._device), adapter_id=self._cur_task, train=True)["features"]
+                vectors.append(_vectors)
             vectors = torch.cat(vectors, dim=0)
             nan_mask = torch.isnan(vectors).any(dim=1)
             if nan_mask.any():
@@ -356,9 +350,8 @@ class Learner(BaseLearner):
         logging.info(info)
 
     def orth_loss(self, features, targets):
-        # L2-normalize to keep sim values in [-1, 1] and avoid overflow
-        features = F.normalize(features, p=2, dim=1)
         if self.cls_mean:
+            # orth loss of this batch
             sample_mean = []
             for k, v in self.cls_mean.items():
                 if isinstance(v, list):
@@ -366,7 +359,6 @@ class Learner(BaseLearner):
                 else:
                     sample_mean.append(v)
             sample_mean = torch.stack(sample_mean, dim=0).to(self._device, non_blocking=True)
-            sample_mean = F.normalize(sample_mean, p=2, dim=1)
             M = torch.cat([sample_mean, features], dim=0)
             sim = torch.matmul(M, M.t()) / 0.8
             loss = torch.nn.functional.cross_entropy(sim, torch.arange(0, sim.shape[0]).long().to(self._device))
