@@ -240,17 +240,28 @@ class Learner(BaseLearner):
             vectors = torch.cat(vectors, dim=0)
             nan_mask = torch.isnan(vectors).any(dim=1)
             if nan_mask.any():
-                logging.warning(f"Class {class_idx}: {nan_mask.sum().item()} NaN feature rows replaced with zeros")
-                vectors = torch.nan_to_num(vectors, nan=0.0)
+                n_nan = nan_mask.sum().item()
+                vectors = vectors[~nan_mask]
+                if len(vectors) == 0:
+                    # All features are NaN — weights are corrupted for this class.
+                    # Fall back to zero mean and isotropic identity covariance so
+                    # classifier alignment can still sample from a valid distribution.
+                    logging.warning(f"Class {class_idx}: all {n_nan} feature rows are NaN, using zero mean + identity cov")
+                    feat_dim = self._network.backbone.out_dim
+                    self.cls_mean[class_idx] = torch.zeros(feat_dim, device=self._device)
+                    if self.args["ca_storage_efficient_method"] == 'covariance':
+                        self.cls_cov[class_idx] = (torch.eye(feat_dim) * 1e-3).to(self._device)
+                    elif self.args["ca_storage_efficient_method"] == 'variance':
+                        self.cls_cov[class_idx] = torch.ones(feat_dim, device=self._device) * 1e-3
+                    continue
+                logging.warning(f"Class {class_idx}: {n_nan} NaN feature rows dropped, {len(vectors)} valid")
 
             if self.args["ca_storage_efficient_method"] == 'covariance':
                 features_per_cls = vectors
-                # print(features_per_cls.shape)
                 self.cls_mean[class_idx] = features_per_cls.mean(dim=0).to(self._device)
                 self.cls_cov[class_idx] = torch.cov(features_per_cls.T) + (torch.eye(self.cls_mean[class_idx].shape[-1]) * 1e-4).to(self._device)
             elif self.args["ca_storage_efficient_method"] == 'variance':
                 features_per_cls = vectors
-                # print(features_per_cls.shape)
                 self.cls_mean[class_idx] = features_per_cls.mean(dim=0).to(self._device)
                 self.cls_cov[class_idx] = torch.diag(torch.cov(features_per_cls.T) + (torch.eye(self.cls_mean[class_idx].shape[-1]) * 1e-4).to(self._device))
             elif self.args["ca_storage_efficient_method"] == 'multi-centroid':
@@ -336,9 +347,14 @@ class Learner(BaseLearner):
                 logits = outputs['logits'][:, :self._total_classes]
 
                 loss = F.cross_entropy(logits, tgt)
-                
+
+                if torch.isnan(loss):
+                    logging.warning(f"NaN loss in classifer_align at iter {_iter}, skipping")
+                    optimizer.zero_grad()
+                    continue
+
                 _, preds = torch.max(logits, dim=1)
-                
+
                 correct += preds.eq(tgt.expand_as(preds)).cpu().sum()
                 total += len(tgt)
 
