@@ -178,6 +178,7 @@ class Learner(BaseLearner):
 
                 optimizer.zero_grad()
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(self._network.backbone.parameters(), 1.0)
                 optimizer.step()
                 
                 # # using EMA method to merge adapters
@@ -224,6 +225,13 @@ class Learner(BaseLearner):
                 _vectors = model(_inputs.to(self._device), adapter_id=self._cur_task, train=True)["features"]
                 vectors.append(_vectors)
             vectors = torch.cat(vectors, dim=0)
+            nan_mask = torch.isnan(vectors).any(dim=1)
+            if nan_mask.any():
+                logging.warning(f"Class {class_idx}: {nan_mask.sum().item()} NaN feature rows dropped")
+                vectors = vectors[~nan_mask]
+            if len(vectors) == 0:
+                logging.warning(f"Class {class_idx}: all features NaN, skipping class mean computation")
+                continue
 
             if self.args["ca_storage_efficient_method"] == 'covariance':
                 features_per_cls = vectors

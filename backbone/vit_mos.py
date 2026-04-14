@@ -308,7 +308,10 @@ class VisionTransformer(nn.Module):
             self.cur_adapter = self.reweight_adapter(self.cur_adapter, len(self.adapter_list))
 
     def adapter_update(self):
-        self.adapter_list.append(copy.deepcopy(self.cur_adapter))
+        frozen_copy = copy.deepcopy(self.cur_adapter)
+        for p in frozen_copy.parameters():
+            p.requires_grad_(False)
+        self.adapter_list.append(frozen_copy)
         self.sum_adapter_param()
     
     # Calculate the prefix sum of the adapters.

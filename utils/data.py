@@ -22,7 +22,7 @@ def download_and_extract_dataset(dataset_name, file_id, train_subdir="train", te
             raise Exception(f"Failed to download {dataset_name} dataset: {str(e)}")
         print(f"Extracting {dataset_name} dataset...")
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(DATA_ROOT)
+            zip_ref.extractall(os.path.join(DATA_ROOT, dataset_name))
         os.remove(zip_path)
         print(f"{dataset_name} dataset extracted successfully.")
 
