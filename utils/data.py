@@ -6,7 +6,7 @@ import kagglehub
 from torchvision import datasets, transforms
 from utils.toolkit import split_images_labels
 
-DATA_ROOT = "/home/lis/data"
+DATA_ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 os.makedirs(DATA_ROOT, exist_ok=True)
 
 def download_and_extract_dataset(dataset_name, file_id, train_subdir="train", test_subdir="test"):
