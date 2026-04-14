@@ -242,19 +242,19 @@ class Learner(BaseLearner):
             if nan_mask.any():
                 n_nan = nan_mask.sum().item()
                 vectors = vectors[~nan_mask]
-                if len(vectors) == 0:
-                    # All features are NaN — weights are corrupted for this class.
-                    # Fall back to zero mean and isotropic identity covariance so
-                    # classifier alignment can still sample from a valid distribution.
-                    logging.warning(f"Class {class_idx}: all {n_nan} feature rows are NaN, using zero mean + identity cov")
-                    feat_dim = self._network.backbone.out_dim
-                    self.cls_mean[class_idx] = torch.zeros(feat_dim, device=self._device)
-                    if self.args["ca_storage_efficient_method"] == 'covariance':
-                        self.cls_cov[class_idx] = (torch.eye(feat_dim) * 1e-3).to(self._device)
-                    elif self.args["ca_storage_efficient_method"] == 'variance':
-                        self.cls_cov[class_idx] = torch.ones(feat_dim, device=self._device) * 1e-3
-                    continue
                 logging.warning(f"Class {class_idx}: {n_nan} NaN feature rows dropped, {len(vectors)} valid")
+            # torch.cov requires n >= 2; with fewer samples the unbiased estimator
+            # divides by n-1 = 0 and returns NaN, which propagates into
+            # MultivariateNormal and produces NaN sampled data in classifer_align.
+            if len(vectors) < 2:
+                feat_dim = self._network.backbone.out_dim
+                mean = vectors.mean(dim=0) if len(vectors) == 1 else torch.zeros(feat_dim, device=self._device)
+                self.cls_mean[class_idx] = mean.to(self._device)
+                if self.args["ca_storage_efficient_method"] == 'covariance':
+                    self.cls_cov[class_idx] = (torch.eye(feat_dim) * 1e-3).to(self._device)
+                elif self.args["ca_storage_efficient_method"] == 'variance':
+                    self.cls_cov[class_idx] = torch.ones(feat_dim, device=self._device) * 1e-3
+                continue
 
             if self.args["ca_storage_efficient_method"] == 'covariance':
                 features_per_cls = vectors
@@ -349,7 +349,6 @@ class Learner(BaseLearner):
                 loss = F.cross_entropy(logits, tgt)
 
                 if torch.isnan(loss):
-                    logging.warning(f"NaN loss in classifer_align at iter {_iter}, skipping")
                     optimizer.zero_grad()
                     continue
 
