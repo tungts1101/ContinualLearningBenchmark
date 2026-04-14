@@ -109,12 +109,14 @@ for method in "${METHODS[@]}"; do
         continue
     fi
 
-    for suffix in "${DATASET_SUFFIXES[@]}"; do
-        # Apply dataset filter
-        if ! should_run_dataset "$suffix"; then
-            continue
-        fi
+    # Iterate in user-supplied order if a filter is given, else default order
+    if [ ${#DATASET_FILTER[@]} -gt 0 ]; then
+        suffixes=("${DATASET_FILTER[@]}")
+    else
+        suffixes=("${DATASET_SUFFIXES[@]}")
+    fi
 
+    for suffix in "${suffixes[@]}"; do
         config="exps/${method}${suffix}.json"
         run_exp "$config"
     done
