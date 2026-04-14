@@ -323,10 +323,10 @@ class VisionTransformer(nn.Module):
                 self.up_weight_sum[layer_idx].append(self.cur_adapter[layer_idx].up_proj.weight.data + self.up_weight_sum[layer_idx][-1])
                 self.up_bias_sum[layer_idx].append(self.cur_adapter[layer_idx].up_proj.bias.data + self.up_bias_sum[layer_idx][-1])
             else:
-                self.down_weight_sum[layer_idx].append(self.cur_adapter[layer_idx].down_proj.weight.data)
-                self.down_bias_sum[layer_idx].append(self.cur_adapter[layer_idx].down_proj.bias.data)
-                self.up_weight_sum[layer_idx].append(self.cur_adapter[layer_idx].up_proj.weight.data)
-                self.up_bias_sum[layer_idx].append(self.cur_adapter[layer_idx].up_proj.bias.data)
+                self.down_weight_sum[layer_idx].append(self.cur_adapter[layer_idx].down_proj.weight.data.clone())
+                self.down_bias_sum[layer_idx].append(self.cur_adapter[layer_idx].down_proj.bias.data.clone())
+                self.up_weight_sum[layer_idx].append(self.cur_adapter[layer_idx].up_proj.weight.data.clone())
+                self.up_bias_sum[layer_idx].append(self.cur_adapter[layer_idx].up_proj.bias.data.clone())
     
     def reweight_adapter(self, adapter, idx):
         # adapter: original adapter
@@ -360,26 +360,18 @@ class VisionTransformer(nn.Module):
         if adapter_id == -1:
             x = self.blocks(x)
         else:
-            for layer_idx, blk in enumerate(self.blocks):
-                if train:
-                    orig_adapter = self.cur_adapter
-                    momentum_adapter = self.reweight_adapter(orig_adapter, adapter_id)
-                    
-                    x = blk(x, momentum_adapter[layer_idx])
+            if train:
+                momentum_adapter = self.reweight_adapter(self.cur_adapter, adapter_id)
+            else:
+                if adapter_id == len(self.adapter_list):
+                    momentum_adapter = self.reweight_adapter(self.cur_adapter, adapter_id)
+                elif adapter_id < len(self.adapter_list):
+                    momentum_adapter = self.reweight_adapter(self.adapter_list[adapter_id], adapter_id)
                 else:
-                    if adapter_id == len(self.adapter_list):
-                        orig_adapter = self.cur_adapter
-                        momentum_adapter = self.reweight_adapter(orig_adapter, adapter_id)
-                        
-                        x = blk(x, momentum_adapter[layer_idx])
+                    raise ValueError("adapter_id is wrong.")
 
-                    elif adapter_id < len(self.adapter_list):
-                        orig_adapter = self.adapter_list[adapter_id]
-                        momentum_adapter = self.reweight_adapter(orig_adapter, adapter_id)
-                        
-                        x = blk(x, momentum_adapter[layer_idx])
-                    else:
-                        raise ValueError("adapter_id is wrong.")
+            for layer_idx, blk in enumerate(self.blocks):
+                x = blk(x, momentum_adapter[layer_idx])
 
         if self.global_pool:
             x = x[:, 1:, :].mean(dim=1)  # global pool without cls token

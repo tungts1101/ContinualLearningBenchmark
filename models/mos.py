@@ -119,9 +119,15 @@ class Learner(BaseLearner):
         scheduler = self.get_scheduler(optimizer)
         
         self._init_train(train_loader, test_loader, optimizer, scheduler)
-        self._network.backbone.adapter_update()
 
+        # Compute class means from the pure trained adapter (no momentum blend).
+        # Temporarily disable momentum so reweight_adapter is a no-op here.
+        orig_momentum = self._network.backbone.config.adapter_momentum
+        self._network.backbone.config.adapter_momentum = 0
         self._compute_mean(self._network.backbone)
+        self._network.backbone.config.adapter_momentum = orig_momentum
+
+        self._network.backbone.adapter_update()
         if self._cur_task > 0:
             self.classifer_align(self._network.backbone)
 
@@ -178,6 +184,7 @@ class Learner(BaseLearner):
 
                 optimizer.zero_grad()
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(self._network.backbone.parameters(), max_norm=1.0)
                 optimizer.step()
 
                 # using EMA method to merge adapters
@@ -221,16 +228,13 @@ class Learner(BaseLearner):
             
             vectors = []
             for _, _inputs, _targets in idx_loader:
-                _vectors = model(_inputs.to(self._device), adapter_id=self._cur_task, train=True)["features"]
+                _vectors = model(_inputs.to(self._device), adapter_id=self._cur_task, train=False)["features"]
                 vectors.append(_vectors)
             vectors = torch.cat(vectors, dim=0)
             nan_mask = torch.isnan(vectors).any(dim=1)
             if nan_mask.any():
-                logging.warning(f"Class {class_idx}: {nan_mask.sum().item()} NaN feature rows dropped")
-                vectors = vectors[~nan_mask]
-            if len(vectors) == 0:
-                logging.warning(f"Class {class_idx}: all features NaN, skipping class mean computation")
-                continue
+                logging.warning(f"Class {class_idx}: {nan_mask.sum().item()} NaN feature rows replaced with zeros")
+                vectors = torch.nan_to_num(vectors, nan=0.0)
 
             if self.args["ca_storage_efficient_method"] == 'covariance':
                 features_per_cls = vectors
