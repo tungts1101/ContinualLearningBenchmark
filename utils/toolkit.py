@@ -12,6 +12,8 @@ def count_parameters(model, trainable=False):
 
 
 def tensor2numpy(x):
+    if not isinstance(x, torch.Tensor):
+        return np.array(x)
     return x.cpu().data.numpy() if x.is_cuda else x.data.numpy()
 
 
