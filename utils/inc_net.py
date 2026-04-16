@@ -233,7 +233,7 @@ def get_backbone(args, pretrained=False):
                 raise NotImplementedError("Unknown type {}".format(name))
             return model
     elif '_tuna' in name:
-        ffn_num = 16
+        ffn_num = 128  # bottleneck=128 → 12 * 2*768*128 = 2,359,296 params, matching KCEA LoRA r=64
         from backbone import vit_tuna
         from easydict import EasyDict
         tuning_config = EasyDict(
