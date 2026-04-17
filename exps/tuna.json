@@ -10,7 +10,7 @@
     "model_name": "tuna",
     "backbone_type": "vit_base_patch16_224_in21k_tuna",
     "device": [
-        "2"
+        "0"
     ],
     "seed": [
         1993,
