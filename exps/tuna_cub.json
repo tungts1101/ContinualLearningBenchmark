@@ -31,7 +31,7 @@
     "pretrained": true,
     "drop": 0.0,
     "drop_path": 0.0,
-    "r": 16,
+    "r": 20,
     "scale": 20.0,
     "m": 0.0
 }
