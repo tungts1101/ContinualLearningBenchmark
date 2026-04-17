@@ -349,10 +349,20 @@ class Learner(BaseLearner):
             for _iter in range(self._total_classes):
                 inp = inputs[_iter * num_sampled_pcls:(_iter + 1) * num_sampled_pcls]
                 tgt = targets[_iter * num_sampled_pcls:(_iter + 1) * num_sampled_pcls]
+
+                if torch.isnan(inp).any():
+                    logging.warning(f"[CA] Task {self._cur_task}, epoch {epoch}, class iter {_iter}: NaN in sampled features, skipping")
+                    continue
+
                 outputs = self._network.fc(inp)["logits"]
                 logits = self.args['scale'] * outputs
 
                 loss = F.cross_entropy(logits, tgt)
+
+                if torch.isnan(loss):
+                    logging.warning(f"[CA] Task {self._cur_task}, epoch {epoch}, class iter {_iter}: NaN loss, skipping")
+                    optimizer.zero_grad()
+                    continue
 
                 _, preds = torch.max(logits, dim=1)
 
@@ -362,10 +372,10 @@ class Learner(BaseLearner):
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-                losses += loss
+                losses += loss.item()
 
             scheduler.step()
-            ca_acc = np.round(tensor2numpy(correct) * 100 / total, decimals=2)
+            ca_acc = np.round(tensor2numpy(correct) * 100 / total, decimals=2) if total > 0 else 0.0
             info = "Task {}, Epoch {}/{} => Loss {:.3f}, CA_accy {:.2f}".format(
                 self._cur_task,
                 epoch + 1,
