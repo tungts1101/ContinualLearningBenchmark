@@ -381,11 +381,13 @@ class VisionTransformer(nn.Module):
    
     def merge(self):
         self.merged_adapter = copy.deepcopy(self.cur_adapter).cpu()
+        for p in self.merged_adapter.parameters():
+            p.requires_grad_(False)
 
         task_vectors = [
             TaskVector(pretrained_state_dict=self.adapter_list[i].cpu().state_dict()) for i in range(len(self.adapter_list))
         ]
-        
+
         vector_unified, masks, rescalers = emr_merge(task_vectors)
         new_state_dict = {}
         for key in vector_unified:
@@ -394,10 +396,12 @@ class VisionTransformer(nn.Module):
         self.merged_adapter = self.merged_adapter.to(self._device)
         for i in range(len(self.adapter_list)):
             self.adapter_list[i]=self.adapter_list[i].to(self._device)
-        
 
     def adapter_update(self):
-        self.adapter_list.append(copy.deepcopy(self.cur_adapter))
+        frozen = copy.deepcopy(self.cur_adapter)
+        for p in frozen.parameters():
+            p.requires_grad_(False)
+        self.adapter_list.append(frozen)
       
     def forward_features(self, x, adapter_id, train):
         B = x.shape[0]
