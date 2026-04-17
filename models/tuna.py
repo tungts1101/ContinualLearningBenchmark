@@ -251,19 +251,31 @@ class Learner(BaseLearner):
                 vectors.append(_vectors)
             vectors = torch.cat(vectors, dim=0)
 
+            nan_mask = torch.isnan(vectors).any(dim=1)
+            if nan_mask.any():
+                logging.warning(f"Class {class_idx}: {nan_mask.sum().item()} NaN feature rows dropped, "
+                                f"{(~nan_mask).sum().item()} valid")
+                vectors = vectors[~nan_mask]
+
+            feat_dim = vectors.shape[1] if len(vectors) > 0 else model.out_dim
+            if len(vectors) < 2:
+                mean = vectors.mean(dim=0) if len(vectors) == 1 else torch.zeros(feat_dim, device=self._device)
+                self.cls_mean[class_idx] = mean.to(self._device)
+                if self.args["ca_storage_efficient_method"] == 'covariance':
+                    self.cls_cov[class_idx] = (torch.eye(feat_dim) * 1e-3).to(self._device)
+                elif self.args["ca_storage_efficient_method"] == 'variance':
+                    self.cls_cov[class_idx] = (torch.eye(feat_dim) * 1e-3).to(self._device)
+                logging.warning(f"Class {class_idx}: only {len(vectors)} sample(s), using fallback statistics")
+                continue
+
             if self.args["ca_storage_efficient_method"] == 'covariance':
-                features_per_cls = vectors
-                # print(features_per_cls.shape)
-                self.cls_mean[class_idx] = features_per_cls.mean(dim=0).to(self._device)
-                self.cls_cov[class_idx] = torch.cov(features_per_cls.T) + (
-                        torch.eye(self.cls_mean[class_idx].shape[-1]) * 1e-4).to(self._device)
+                self.cls_mean[class_idx] = vectors.mean(dim=0).to(self._device)
+                self.cls_cov[class_idx] = torch.cov(vectors.T) + (
+                        torch.eye(feat_dim) * 1e-4).to(self._device)
             elif self.args["ca_storage_efficient_method"] == 'variance':
-                features_per_cls = vectors
-                # print(features_per_cls.shape)
-                self.cls_mean[class_idx] = features_per_cls.mean(dim=0).to(self._device)
+                self.cls_mean[class_idx] = vectors.mean(dim=0).to(self._device)
                 self.cls_cov[class_idx] = torch.diag(
-                    torch.cov(features_per_cls.T) + (torch.eye(self.cls_mean[class_idx].shape[-1]) * 1e-4).to(
-                        self._device))
+                    torch.cov(vectors.T) + (torch.eye(feat_dim) * 1e-4).to(self._device))
 
 
     def classifer_align(self, model):
