@@ -276,7 +276,7 @@ class Learner(BaseLearner):
                 if self.args["ca_storage_efficient_method"] == 'covariance':
                     self.cls_cov[class_idx] = (torch.eye(feat_dim) * 1e-3).to(self._device)
                 elif self.args["ca_storage_efficient_method"] == 'variance':
-                    self.cls_cov[class_idx] = torch.ones(feat_dim, device=self._device) * 1e-3
+                    self.cls_cov[class_idx] = (torch.eye(feat_dim) * 1e-3).to(self._device)
                 logging.warning(f"Class {class_idx}: only {len(vectors)} sample(s), using fallback statistics")
                 continue
 
