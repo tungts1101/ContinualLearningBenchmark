@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run all baseline experiments across 9 methods × 7 datasets.
+# Run all baseline experiments across 11 methods × 7 datasets.
 # Usage:
 #   ./run_baselines.sh                    # run everything sequentially
 #   ./run_baselines.sh aper_ssf           # one method, all datasets
@@ -26,6 +26,8 @@ METHODS=(
     slca
     ease
     mos
+    duct
+    tuna
 )
 
 # Dataset suffixes and the config filenames they map to:
