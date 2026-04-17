@@ -187,12 +187,24 @@ class Learner(BaseLearner):
                 features = self._network.backbone(inputs, adapter_id=self._cur_task, train=True)["features"]
                 logits = self._network.fc(features)["logits"]
 
+                if torch.isnan(features).any() or torch.isnan(logits).any():
+                    logging.warning(f"Task {self._cur_task}, batch {i}: NaN in forward pass, skipping update")
+                    optimizer.zero_grad()
+                    continue
+
                 loss = loss_cos(logits[:, self._known_classes:], targets - self._known_classes)
                 # loss = F.cross_entropy(logits, targets.long())
                 if self._cur_task > 0 and self.use_orth:
                     loss += self.orth_loss(features) * self.args["reg"] * torch.exp(-torch.tensor(self._cur_task+1, dtype=torch.float32, device=self._device))
+
+                if torch.isnan(loss):
+                    logging.warning(f"Task {self._cur_task}, batch {i}: NaN loss, skipping update")
+                    optimizer.zero_grad()
+                    continue
+
                 optimizer.zero_grad()
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(self._network.backbone.parameters(), max_norm=1.0)
                 optimizer.step()
                 losses += loss.item()
 
