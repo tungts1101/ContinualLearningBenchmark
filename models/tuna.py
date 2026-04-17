@@ -351,7 +351,6 @@ class Learner(BaseLearner):
                 tgt = targets[_iter * num_sampled_pcls:(_iter + 1) * num_sampled_pcls]
 
                 if torch.isnan(inp).any():
-                    logging.warning(f"[CA] Task {self._cur_task}, epoch {epoch}, class iter {_iter}: NaN in sampled features, skipping")
                     continue
 
                 outputs = self._network.fc(inp)["logits"]
@@ -360,7 +359,6 @@ class Learner(BaseLearner):
                 loss = F.cross_entropy(logits, tgt)
 
                 if torch.isnan(loss):
-                    logging.warning(f"[CA] Task {self._cur_task}, epoch {epoch}, class iter {_iter}: NaN loss, skipping")
                     optimizer.zero_grad()
                     continue
 
