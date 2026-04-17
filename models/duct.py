@@ -225,6 +225,23 @@ class Learner(BaseLearner):
         test_acc = self._compute_accuracy(self._network, self.test_loader)
         logging.info('Test accuracy of model after classifier transport: {}'.format(test_acc))
 
+    def _compute_class_mean(self, data_manager):
+        if hasattr(self, '_class_means') and self._class_means is not None:
+            new_class_means = np.zeros((self._total_classes, self.feature_dim))
+            new_class_means[:self._known_classes] = self._class_means
+            self._class_means = new_class_means
+        else:
+            self._class_means = np.zeros((self._total_classes, self.feature_dim))
+
+        for class_idx in range(self._known_classes, self._total_classes):
+            data, targets, idx_dataset = data_manager.get_dataset(
+                np.arange(class_idx, class_idx + 1), source='train', mode='test', ret_data=True
+            )
+            idx_loader = DataLoader(idx_dataset, batch_size=self.batch_size, shuffle=False,
+                                    num_workers=self.num_workers)
+            vectors, _ = self._extract_vectors(idx_loader)
+            self._class_means[class_idx] = np.mean(vectors, axis=0)
+
     def _cal_means_cur(self, data_manager):
         class_means = []
         for class_id in range(self._known_classes, self._total_classes):
