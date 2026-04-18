@@ -218,8 +218,17 @@ class Learner(BaseLearner):
             for _iter in range(crct_num):
                 inp = inputs[_iter*num_sampled_pcls:(_iter+1)*num_sampled_pcls]
                 tgt = targets[_iter*num_sampled_pcls:(_iter+1)*num_sampled_pcls]
+
+                if torch.isnan(inp).any():
+                    logging.warning(f"CA Task {self._cur_task}, iter {_iter}: NaN in sampled input, skipping update")
+                    continue
+
                 outputs = self._network(inp, bcb_no_grad=True, fc_only=True)
                 logits = outputs['logits']
+
+                if torch.isnan(logits).any():
+                    logging.warning(f"CA Task {self._cur_task}, iter {_iter}: NaN in logits, skipping update")
+                    continue
 
                 if self.logit_norm is not None:
                     per_task_norm = []
@@ -232,13 +241,17 @@ class Learner(BaseLearner):
                         prev_t_size += self.task_sizes[_ti]
                     per_task_norm = torch.cat(per_task_norm, dim=-1)
                     norms = per_task_norm.mean(dim=-1, keepdim=True)
-                        
+
                     norms_all = torch.norm(logits[:, :crct_num], p=2, dim=-1, keepdim=True) + 1e-7
                     decoupled_logits = torch.div(logits[:, :crct_num], norms) / self.logit_norm
                     loss = F.cross_entropy(decoupled_logits, tgt)
 
                 else:
                     loss = F.cross_entropy(logits[:, :crct_num], tgt)
+
+                if torch.isnan(loss):
+                    logging.warning(f"CA Task {self._cur_task}, iter {_iter}: NaN loss, skipping update")
+                    continue
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -272,7 +285,10 @@ class Learner(BaseLearner):
             idx_loader = DataLoader(idx_dataset, batch_size=self.batch_size, shuffle=False, num_workers=4)
             vectors, _ = self._extract_vectors(idx_loader)
 
-            # vectors = np.concatenate([vectors_aug, vectors])
+            nan_mask = np.isnan(vectors).any(axis=1)
+            if nan_mask.any():
+                logging.warning(f"Class {class_idx}: {nan_mask.sum()} NaN feature rows dropped, {(~nan_mask).sum()} valid")
+                vectors = vectors[~nan_mask]
 
             class_mean = np.mean(vectors, axis=0)
             # class_cov = np.cov(vectors.T)
