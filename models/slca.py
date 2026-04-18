@@ -260,7 +260,7 @@ class Learner(BaseLearner):
                 losses += loss.item()
 
             if nan_skipped > 0:
-                logging.warning(f"CA Task {self._cur_task}, epoch {_epoch}: skipped {nan_skipped}/{crct_num} iters due to NaN")
+                logging.warning(f"CA Task {self._cur_task}, epoch {epoch}: skipped {nan_skipped}/{crct_num} iters due to NaN")
             scheduler.step()
             test_acc = self._compute_accuracy(self._network, self.test_loader)
             info = 'CA Task {} => Loss {:.3f}, Test_accy {:.3f}'.format(
