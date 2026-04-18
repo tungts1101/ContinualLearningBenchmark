@@ -208,6 +208,7 @@ class Learner(BaseLearner):
             old_cl_means = torch.tensor(self._class_means[old_range_start:old_range_end]).to(self._device)
 
             cost_matrix = torch.cdist(cur_cl_means, old_cl_means, p=2)
+            cost_matrix = cost_matrix / (cost_matrix.max() + 1e-8)  # normalize to avoid exp(-C/reg) underflow
             n_cur = cost_matrix.shape[0]
             n_old = cost_matrix.shape[1]
             prob_source = torch.ones(n_cur).to(self._device) / n_cur
