@@ -208,8 +208,10 @@ class Learner(BaseLearner):
             old_cl_means = torch.tensor(self._class_means[old_range_start:old_range_end]).to(self._device)
 
             cost_matrix = torch.cdist(cur_cl_means, old_cl_means, p=2)
-            prob_source = torch.ones(self.task_cl_inc).to(self._device) / self.task_cl_inc * 1.0
-            prob_target = torch.ones(self.task_cl_inc).to(self._device) / self.task_cl_inc * 1.0
+            n_cur = cost_matrix.shape[0]
+            n_old = cost_matrix.shape[1]
+            prob_source = torch.ones(n_cur).to(self._device) / n_cur
+            prob_target = torch.ones(n_old).to(self._device) / n_old
             reg = self.args["ot_reg"] if self.args.get("ot_reg", False) else 0.02
             T_matrix = ot.sinkhorn(prob_source, prob_target, cost_matrix, reg)  # @return: torch.DoubleTensor
 
