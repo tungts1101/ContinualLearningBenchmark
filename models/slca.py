@@ -215,19 +215,20 @@ class Learner(BaseLearner):
             targets = targets[sf_indexes]
 
             
+            nan_skipped = 0
             for _iter in range(crct_num):
                 inp = inputs[_iter*num_sampled_pcls:(_iter+1)*num_sampled_pcls]
                 tgt = targets[_iter*num_sampled_pcls:(_iter+1)*num_sampled_pcls]
 
                 if torch.isnan(inp).any():
-                    logging.warning(f"CA Task {self._cur_task}, iter {_iter}: NaN in sampled input, skipping update")
+                    nan_skipped += 1
                     continue
 
                 outputs = self._network(inp, bcb_no_grad=True, fc_only=True)
                 logits = outputs['logits']
 
                 if torch.isnan(logits).any():
-                    logging.warning(f"CA Task {self._cur_task}, iter {_iter}: NaN in logits, skipping update")
+                    nan_skipped += 1
                     continue
 
                 if self.logit_norm is not None:
@@ -250,7 +251,7 @@ class Learner(BaseLearner):
                     loss = F.cross_entropy(logits[:, :crct_num], tgt)
 
                 if torch.isnan(loss):
-                    logging.warning(f"CA Task {self._cur_task}, iter {_iter}: NaN loss, skipping update")
+                    nan_skipped += 1
                     continue
 
                 optimizer.zero_grad()
@@ -258,6 +259,8 @@ class Learner(BaseLearner):
                 optimizer.step()
                 losses += loss.item()
 
+            if nan_skipped > 0:
+                logging.warning(f"CA Task {self._cur_task}, epoch {_epoch}: skipped {nan_skipped}/{crct_num} iters due to NaN")
             scheduler.step()
             test_acc = self._compute_accuracy(self._network, self.test_loader)
             info = 'CA Task {} => Loss {:.3f}, Test_accy {:.3f}'.format(
